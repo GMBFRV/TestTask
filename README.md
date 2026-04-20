@@ -63,6 +63,7 @@ Protected endpoints:
 Credentials are configured via environment variables:
 - `BASIC_AUTH_USERNAME` (default: `admin`)
 - `BASIC_AUTH_PASSWORD` (default: `admin`)
+- `ARTIC_CACHE_TTL_SECONDS` (default: `300`)
 
 PowerShell example:
 ```powershell
@@ -72,6 +73,8 @@ uvicorn main:app --reload
 ```
 
 In Postman, set Authorization type to `Basic Auth` at collection/folder level and provide the same username/password.
+
+Third-party API lookups are cached in-memory per process (`external_id -> exists/title`) with TTL controlled by `ARTIC_CACHE_TTL_SECONDS`.
 
 `curl` example for protected endpoints:
 ```bash
