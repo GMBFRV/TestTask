@@ -1,4 +1,5 @@
 from collections.abc import Generator
+import base64
 
 import pytest
 from fastapi.testclient import TestClient
@@ -62,3 +63,9 @@ def client() -> Generator[TestClient, None, None]:
 
     app.dependency_overrides.clear()
     Base.metadata.drop_all(bind=engine)
+
+
+@pytest.fixture()
+def auth_headers() -> dict[str, str]:
+    token = base64.b64encode(b"admin:admin").decode("ascii")
+    return {"Authorization": f"Basic {token}"}

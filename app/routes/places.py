@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
+from app.auth import require_basic_auth
 from app.dependencies import get_artic_client
 from app.db import get_db
 from app.models import ProjectPlace
@@ -21,6 +22,7 @@ router = APIRouter(prefix="/projects/{project_id}/places", tags=["places"])
 def add_place_to_project(
     project_id: int,
     payload: PlaceCreate,
+    _: None = Depends(require_basic_auth),
     db: Session = Depends(get_db),
     artic_client: ArtInstituteClient = Depends(get_artic_client),
 ) -> ProjectPlace:
@@ -87,7 +89,13 @@ def get_project_place(project_id: int, place_id: int, db: Session = Depends(get_
 
 
 @router.patch("/{place_id}", response_model=PlaceRead)
-def update_project_place(project_id: int, place_id: int, payload: PlaceUpdate, db: Session = Depends(get_db)) -> ProjectPlace:
+def update_project_place(
+    project_id: int,
+    place_id: int,
+    payload: PlaceUpdate,
+    _: None = Depends(require_basic_auth),
+    db: Session = Depends(get_db),
+) -> ProjectPlace:
     project = require_project(db, project_id)
     place = db.query(ProjectPlace).filter(ProjectPlace.project_id == project_id, ProjectPlace.id == place_id).first()
     if not place:

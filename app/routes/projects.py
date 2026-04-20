@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import func
 from sqlalchemy.orm import Session, selectinload
 
+from app.auth import require_basic_auth
 from app.dependencies import get_artic_client
 from app.db import get_db
 from app.models import ProjectPlace, TravelProject
@@ -22,6 +23,7 @@ router = APIRouter(prefix="/projects", tags=["projects"])
 @router.post("", response_model=ProjectWithPlacesRead, status_code=status.HTTP_201_CREATED)
 def create_project(
     payload: ProjectCreate,
+    _: None = Depends(require_basic_auth),
     db: Session = Depends(get_db),
     artic_client: ArtInstituteClient = Depends(get_artic_client),
 ) -> TravelProject:
@@ -108,7 +110,12 @@ def get_project(project_id: int, db: Session = Depends(get_db)) -> TravelProject
 
 
 @router.patch("/{project_id}", response_model=ProjectRead)
-def update_project(project_id: int, payload: ProjectUpdate, db: Session = Depends(get_db)) -> TravelProject:
+def update_project(
+    project_id: int,
+    payload: ProjectUpdate,
+    _: None = Depends(require_basic_auth),
+    db: Session = Depends(get_db),
+) -> TravelProject:
     project = require_project(db, project_id)
     updates = payload.model_dump(exclude_unset=True)
     for field, value in updates.items():
@@ -119,7 +126,11 @@ def update_project(project_id: int, payload: ProjectUpdate, db: Session = Depend
 
 
 @router.delete("/{project_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_project(project_id: int, db: Session = Depends(get_db)) -> None:
+def delete_project(
+    project_id: int,
+    _: None = Depends(require_basic_auth),
+    db: Session = Depends(get_db),
+) -> None:
     project = require_project(db, project_id)
     # Business rule: if any place was visited, deleting the project is not allowed.
     visited_exists = (

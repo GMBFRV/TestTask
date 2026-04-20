@@ -31,6 +31,39 @@ API docs: `http://127.0.0.1:8000/docs`
 .\.venv\Scripts\python -m pytest -q
 ```
 
+## Basic Authentication
+
+Mutating endpoints require HTTP Basic auth:
+- `POST`, `PATCH`, `DELETE` on project/place routes
+- `GET` endpoints remain public
+
+Protected endpoints:
+- `POST /projects`
+- `PATCH /projects/{project_id}`
+- `DELETE /projects/{project_id}`
+- `POST /projects/{project_id}/places`
+- `PATCH /projects/{project_id}/places/{place_id}`
+
+Credentials are configured via environment variables:
+- `BASIC_AUTH_USERNAME` (default: `admin`)
+- `BASIC_AUTH_PASSWORD` (default: `admin`)
+
+PowerShell example:
+```powershell
+$env:BASIC_AUTH_USERNAME="admin"
+$env:BASIC_AUTH_PASSWORD="admin"
+uvicorn main:app --reload
+```
+
+In Postman, set Authorization type to `Basic Auth` at collection/folder level and provide the same username/password.
+
+`curl` example for protected endpoints:
+```bash
+curl -u admin:admin -X POST "http://127.0.0.1:8000/projects" \
+  -H "Content-Type: application/json" \
+  -d "{\"name\":\"Trip Alpha\"}"
+```
+
 ## Implemented Rules
 
 - Creating an empty project (without places) is allowed; places can be added later.
