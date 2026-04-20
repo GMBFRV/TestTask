@@ -1,0 +1,12 @@
+services:
+  api:
+    build: .
+    container_name: travel_projects_api
+    ports:
+      - "8000:8000"
+    environment:
+      BASIC_AUTH_USERNAME: admin
+      BASIC_AUTH_PASSWORD: admin
+    volumes:
+      - .:/app
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload

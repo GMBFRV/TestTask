@@ -25,6 +25,22 @@ uvicorn main:app --reload
 
 API docs: `http://127.0.0.1:8000/docs`
 
+## Run with Docker
+
+Build and run locally with Docker Compose:
+
+```bash
+docker compose up --build
+```
+
+Then open:
+- `http://127.0.0.1:8000/docs`
+
+Stop containers:
+```bash
+docker compose down
+```
+
 ## Run Tests
 
 ```bash
