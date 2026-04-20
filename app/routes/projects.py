@@ -1,10 +1,13 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from datetime import date
+
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlalchemy import func
 from sqlalchemy.orm import Session, selectinload
 
 from app.dependencies import get_artic_client
 from app.db import get_db
 from app.models import ProjectPlace, TravelProject
-from app.schemas import ProjectCreate, ProjectRead, ProjectUpdate, ProjectWithPlacesRead
+from app.schemas import PaginatedProjectsResponse, ProjectCreate, ProjectRead, ProjectUpdate, ProjectWithPlacesRead
 from app.services.artic_client import ArtInstituteClient, ArtInstituteServiceError
 from app.services.project_rules import (
     ensure_not_duplicate_external_id,
@@ -63,9 +66,35 @@ def create_project(
     return project
 
 
-@router.get("", response_model=list[ProjectRead])
-def list_projects(db: Session = Depends(get_db)) -> list[TravelProject]:
-    return db.query(TravelProject).order_by(TravelProject.id.asc()).all()
+@router.get("", response_model=PaginatedProjectsResponse)
+def list_projects(
+    db: Session = Depends(get_db),
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=10, ge=1, le=100),
+    is_completed: bool | None = Query(default=None),
+    start_date_from: date | None = Query(default=None),
+    start_date_to: date | None = Query(default=None),
+    q: str | None = Query(default=None),
+) -> PaginatedProjectsResponse:
+    if start_date_from and start_date_to and start_date_from > start_date_to:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="start_date_from must be less than or equal to start_date_to.",
+        )
+
+    query = db.query(TravelProject)
+    if is_completed is not None:
+        query = query.filter(TravelProject.is_completed == is_completed)
+    if start_date_from is not None:
+        query = query.filter(TravelProject.start_date >= start_date_from)
+    if start_date_to is not None:
+        query = query.filter(TravelProject.start_date <= start_date_to)
+    if q:
+        query = query.filter(TravelProject.name.ilike(f"%{q}%"))
+
+    total = query.with_entities(func.count(TravelProject.id)).scalar() or 0
+    items = query.order_by(TravelProject.id.asc()).offset((page - 1) * page_size).limit(page_size).all()
+    return PaginatedProjectsResponse(items=items, total=total, page=page, page_size=page_size)
 
 
 @router.get("/{project_id}", response_model=ProjectWithPlacesRead)

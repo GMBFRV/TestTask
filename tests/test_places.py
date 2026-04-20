@@ -88,3 +88,36 @@ def test_add_place_returns_502_when_artic_is_unavailable(client):
         assert response.status_code == 502
     finally:
         app.dependency_overrides.pop(get_artic_client, None)
+
+
+def test_list_places_supports_pagination_and_filters(client):
+    project_id = client.post("/projects", json={"name": "Project"}).json()["id"]
+    first = client.post(f"/projects/{project_id}/places", json={"external_id": 111}).json()
+    second = client.post(f"/projects/{project_id}/places", json={"external_id": 222}).json()
+    client.post(f"/projects/{project_id}/places", json={"external_id": 333})
+
+    client.patch(f"/projects/{project_id}/places/{second['id']}", json={"is_visited": True})
+
+    page_1 = client.get(f"/projects/{project_id}/places?page=1&page_size=2")
+    assert page_1.status_code == 200
+    page_1_payload = page_1.json()
+    assert page_1_payload["total"] == 3
+    assert page_1_payload["page"] == 1
+    assert page_1_payload["page_size"] == 2
+    assert len(page_1_payload["items"]) == 2
+
+    page_2 = client.get(f"/projects/{project_id}/places?page=2&page_size=2")
+    assert page_2.status_code == 200
+    assert len(page_2.json()["items"]) == 1
+
+    visited_filter = client.get(f"/projects/{project_id}/places?is_visited=true")
+    assert visited_filter.status_code == 200
+    visited_payload = visited_filter.json()
+    assert visited_payload["total"] == 1
+    assert visited_payload["items"][0]["id"] == second["id"]
+
+    search_filter = client.get(f"/projects/{project_id}/places?q=Artwork 111")
+    assert search_filter.status_code == 200
+    search_payload = search_filter.json()
+    assert search_payload["total"] == 1
+    assert search_payload["items"][0]["id"] == first["id"]

@@ -68,3 +68,17 @@ class ProjectRead(BaseModel):
 
 class ProjectWithPlacesRead(ProjectRead):
     places: list[PlaceRead] = Field(default_factory=list)
+
+
+class PaginatedProjectsResponse(BaseModel):
+    items: list[ProjectRead]
+    total: int = Field(..., ge=0)
+    page: int = Field(..., ge=1)
+    page_size: int = Field(..., ge=1, le=100)
+
+
+class PaginatedPlacesResponse(BaseModel):
+    items: list[PlaceRead]
+    total: int = Field(..., ge=0)
+    page: int = Field(..., ge=1)
+    page_size: int = Field(..., ge=1, le=100)

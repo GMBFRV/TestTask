@@ -1,10 +1,11 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.dependencies import get_artic_client
 from app.db import get_db
 from app.models import ProjectPlace
-from app.schemas import PlaceCreate, PlaceRead, PlaceUpdate
+from app.schemas import PaginatedPlacesResponse, PlaceCreate, PlaceRead, PlaceUpdate
 from app.services.artic_client import ArtInstituteClient, ArtInstituteServiceError
 from app.services.project_rules import (
     ensure_not_duplicate_external_id,
@@ -55,10 +56,25 @@ def add_place_to_project(
     return place
 
 
-@router.get("", response_model=list[PlaceRead])
-def list_project_places(project_id: int, db: Session = Depends(get_db)) -> list[ProjectPlace]:
+@router.get("", response_model=PaginatedPlacesResponse)
+def list_project_places(
+    project_id: int,
+    db: Session = Depends(get_db),
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=10, ge=1, le=100),
+    is_visited: bool | None = Query(default=None),
+    q: str | None = Query(default=None),
+) -> PaginatedPlacesResponse:
     require_project(db, project_id)
-    return db.query(ProjectPlace).filter(ProjectPlace.project_id == project_id).order_by(ProjectPlace.id.asc()).all()
+    query = db.query(ProjectPlace).filter(ProjectPlace.project_id == project_id)
+    if is_visited is not None:
+        query = query.filter(ProjectPlace.is_visited == is_visited)
+    if q:
+        query = query.filter(ProjectPlace.title.ilike(f"%{q}%"))
+
+    total = query.with_entities(func.count(ProjectPlace.id)).scalar() or 0
+    items = query.order_by(ProjectPlace.id.asc()).offset((page - 1) * page_size).limit(page_size).all()
+    return PaginatedPlacesResponse(items=items, total=total, page=page, page_size=page_size)
 
 
 @router.get("/{place_id}", response_model=PlaceRead)

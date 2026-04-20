@@ -59,7 +59,11 @@ def test_list_get_patch_and_delete_project(client):
 
     list_response = client.get("/projects")
     assert list_response.status_code == 200
-    assert len(list_response.json()) == 1
+    list_payload = list_response.json()
+    assert list_payload["total"] == 1
+    assert list_payload["page"] == 1
+    assert list_payload["page_size"] == 10
+    assert len(list_payload["items"]) == 1
 
     get_response = client.get(f"/projects/{project_id}")
     assert get_response.status_code == 200
@@ -90,3 +94,43 @@ def test_create_project_returns_502_when_artic_is_unavailable(client):
         assert response.status_code == 502
     finally:
         app.dependency_overrides.pop(get_artic_client, None)
+
+
+def test_list_projects_supports_pagination_and_filters(client):
+    client.post("/projects", json={"name": "Alpha", "start_date": "2026-01-01"})
+    second = client.post("/projects", json={"name": "Beta", "start_date": "2026-02-01"}).json()
+    client.post("/projects", json={"name": "Gamma", "start_date": "2026-03-01"})
+
+    place = client.post(f"/projects/{second['id']}/places", json={"external_id": 111}).json()
+    client.patch(f"/projects/{second['id']}/places/{place['id']}", json={"is_visited": True})
+
+    page_1 = client.get("/projects?page=1&page_size=2")
+    assert page_1.status_code == 200
+    page_1_payload = page_1.json()
+    assert page_1_payload["total"] == 3
+    assert len(page_1_payload["items"]) == 2
+
+    page_2 = client.get("/projects?page=2&page_size=2")
+    assert page_2.status_code == 200
+    assert len(page_2.json()["items"]) == 1
+
+    completed_filter = client.get("/projects?is_completed=true")
+    assert completed_filter.status_code == 200
+    completed_payload = completed_filter.json()
+    assert completed_payload["total"] == 1
+    assert completed_payload["items"][0]["name"] == "Beta"
+
+    date_range = client.get("/projects?start_date_from=2026-02-01&start_date_to=2026-03-01")
+    assert date_range.status_code == 200
+    assert date_range.json()["total"] == 2
+
+    name_search = client.get("/projects?q=alp")
+    assert name_search.status_code == 200
+    name_search_payload = name_search.json()
+    assert name_search_payload["total"] == 1
+    assert name_search_payload["items"][0]["name"] == "Alpha"
+
+
+def test_list_projects_rejects_invalid_date_range(client):
+    response = client.get("/projects?start_date_from=2026-03-02&start_date_to=2026-03-01")
+    assert response.status_code == 422
